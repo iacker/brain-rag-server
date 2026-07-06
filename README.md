@@ -89,5 +89,8 @@ The server catches up on vault changes at startup (non-blocking, lock-guarded).
 |---------|---------|---------|
 | `OBSIDIAN_VAULT_PATH` | `~/Brain-vault` | Vault to index |
 | `BRAIN_RAG_DB` | `<project>/data` | LanceDB storage directory |
+| `FASTEMBED_CACHE_PATH` | `~/.cache/fastembed` | Embedding model cache (pinned outside the system tmp dir so the OS never purges it) |
+
+**Offline by design**: the HuggingFace Hub is only contacted once, to download the embedding model. As soon as the model is in the cache, `HF_HUB_OFFLINE=1` is set automatically — every later start works with no network at all.
 
 Chunking (heading-aware, ~1800 chars, 200 overlap), the embedding model, and exclusion rules are constants in `brain_rag/config.py`.
