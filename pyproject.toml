@@ -1,0 +1,18 @@
+[project]
+name = "brain-rag"
+version = "0.1.0"
+description = "Local hybrid-RAG MCP server over the Obsidian Brain-vault (fastembed + LanceDB)"
+requires-python = ">=3.11"
+dependencies = [
+    "lancedb>=0.15",
+    "fastembed>=0.5",
+    "mcp>=1.2",
+]
+
+[project.scripts]
+brain-rag-server = "brain_rag.server:main"
+brain-rag-index = "brain_rag.indexer:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

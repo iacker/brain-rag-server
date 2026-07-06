@@ -1,0 +1,7 @@
+#!/bin/sh
+# Launcher for the brain-rag MCP server.
+# - Resolves the project root from this script's location (portable).
+# - Clears PYTHONPATH/VIRTUAL_ENV so a parent process's Python environment
+#   (e.g. an agent shell profile) cannot shadow this project's venv.
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+exec env -u PYTHONPATH -u VIRTUAL_ENV LANCE_LOG=error "$ROOT/.venv/bin/brain-rag-server" "$@"
