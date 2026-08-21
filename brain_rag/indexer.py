@@ -26,17 +26,16 @@ def get_model():
         from pathlib import Path
 
         # Pin the model cache to a stable dir (fastembed defaults to the system
-        # tmp dir, which macOS purges), and skip HuggingFace Hub checks entirely
-        # once the model is on disk so cold starts work offline.
+        # tmp dir, which macOS purges), so cold starts reuse the download.
         cache_dir = Path(
             os.environ.setdefault(
                 "FASTEMBED_CACHE_PATH", str(Path.home() / ".cache" / "fastembed")
             )
         )
         cache_dir.mkdir(parents=True, exist_ok=True)
-        model_stem = MODEL_NAME.split("/")[-1]
-        if any(cache_dir.glob(f"models--*{model_stem}*")):
-            os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        # ponytail: don't force HF_HUB_OFFLINE from a fuzzy cache glob — it matched
+        # a different model variant's dir and broke every cold start. fastembed
+        # already reuses the pinned cache when present and only downloads if absent.
 
         from fastembed import TextEmbedding
 

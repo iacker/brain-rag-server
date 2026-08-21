@@ -1,11 +1,22 @@
-"""Hybrid search: vector (fastembed) + BM25 full-text, merged with reciprocal rank fusion."""
+"""Hybrid search: vector (fastembed) + BM25 full-text, merged with reciprocal
+rank fusion, then reranked with a cross-encoder for precision."""
 
 import lancedb
 
-from .config import DATA_DIR, SECRET_RE, TABLE_NAME, VAULT
+from .config import DATA_DIR, RERANK_MODEL, SECRET_RE, TABLE_NAME, VAULT
 from .indexer import get_model
 
 _db = None
+_reranker = None
+
+
+def get_reranker():
+    global _reranker
+    if _reranker is None:
+        from fastembed.rerank.cross_encoder import TextCrossEncoder
+
+        _reranker = TextCrossEncoder(model_name=RERANK_MODEL)
+    return _reranker
 
 
 def get_table():
@@ -37,7 +48,7 @@ def _rrf(result_lists: list[list[dict]], k: int = 60) -> list[dict]:
 COLUMNS = ["id", "path", "heading", "text"]
 
 
-def search(query: str, limit: int = 8) -> list[dict]:
+def search(query: str, limit: int = 8, rerank: bool = True) -> list[dict]:
     table = get_table()
     fetch = max(limit * 3, 15)
 
@@ -58,7 +69,25 @@ def search(query: str, limit: int = 8) -> list[dict]:
     def clean(rows):
         return [{c: r[c] for c in COLUMNS} for r in rows]
 
-    return _rrf([clean(vector_hits), clean(fts_hits)])[:limit]
+    fused = _rrf([clean(vector_hits), clean(fts_hits)])
+
+    if not rerank or not fused:
+        return fused[:limit]
+
+    # Cross-encoder rerank the fused candidate pool: RRF orders by rank
+    # agreement, the reranker scores actual query/text relevance. Biggest
+    # precision lever on an already-hybrid pipeline (Anthropic: -67% failures).
+    candidates = fused[: max(fetch, 20)]
+    try:
+        scores = list(get_reranker().rerank(query, [c["text"] for c in candidates]))
+        for row, s in zip(candidates, scores):
+            row["score"] = round(float(s), 6)
+        candidates.sort(key=lambda r: r["score"], reverse=True)
+        return candidates[:limit]
+    except Exception:
+        # ponytail: reranker is a quality boost, never a hard dependency —
+        # fall back to the RRF order if the model can't load.
+        return fused[:limit]
 
 
 def read_note(rel_path: str) -> str:
